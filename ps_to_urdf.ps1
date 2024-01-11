@@ -4,7 +4,7 @@
 # 特殊キーの説明
 #   "__tag"の値をXMLのタグ名に、"__body"の値(配列)をXMLの内部BODYとみなす
 # 特殊キー以外は、タグの属性名とみなす
-function convert_to_urdf {
+function to_xml {
 	param ([System.Collections.Hashtable] $tree, [int] $level = 0)
 
 	$indent = "`t" * $level
@@ -70,4 +70,30 @@ function uvector_to_rpy {
 				[Math]::Atan2(2.0 * $quat.Z * $quat.W - 2.0 * $quat.X * $quat.Y,
 								2.0 * $quat.W * $quat.W + 2.0 * $quat.W * $quat.W - 1.0))
 	}
+}
+
+function parse_icad {
+	param ($tree, $parent)
+
+	$stl = ""
+	$stlname = ""
+	$xyz = @(0,0,0)
+	$xvec = @(1,0,0)
+	$yvec = @(0,1,0)
+	$zvec = @(0,0,1)
+	$children = @()
+
+	$rpy = uvec_to_rpy $xvec $yvec $zvec
+	$body = parse_icad $children $stl
+
+	@(@{__tag = "link"; name = $stlname;
+			__body = @(@{__tag = "visual";
+					__body = @(@{__tag = "geometry"; __body = @(@{__tag = "stlobj"; path = $stl})},
+								@{__tag = "origin"; xyz = $xyz; rpy = $rpy},
+								@{__tag = "material"; name = "gray";
+									__body = @(@{__tag = "color"; rgba = "0.2 0.2 0.2 1.0"})})},
+					)},
+			@{__tag = "joint"; name = "${stl}_joint"; type = "fixed"; # [TODO] joint type
+				__body = @(@{__tag = "parent" link = $parent}, @{__tag = "child"; link = $stl})})
+
 }
