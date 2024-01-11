@@ -54,19 +54,19 @@ function uvector_to_rpy {
 												0, 0, 0, 1)
 	$quat = [System.Numerics.Quaternion]::CreateFromRotationMatrix($mat)
 	$sy = 2.0 * $quat.X * $quat.Z + 2.0 * $quat.Y * $quat.W
-	if ([Math]::abs(sy) > 0.99999)
+	if ([Math]::Abs($sy) > 0.99999)
 	{
 		# オイラー角のジンバルロック
 		return @([Math]::Atan2(2.0 * $quat.Y * $quat.Z + 2.0 * $quat.X * $quat.W,
 					2.0 * $quat.W * $quat.W + 2.0 * $quat.Y * $quat.Y - 1),
-				[Math::Asin(sy),
+				[Math]::Asin($sy),
 				0.0)
 	}
 	else
 	{
 		return @([Math]::Atan2(2.0 * $quat.X * $quat.W - 2.0 * $quat.Y * $quat.Z,
 								2.0 * $quat.W * $quat.W + 2.0 * $quat.Z * $quat.Z - 1.0),
-				[Math]::Asin(sy),
+				[Math]::Asin($sy),
 				[Math]::Atan2(2.0 * $quat.Z * $quat.W - 2.0 * $quat.X * $quat.Y,
 								2.0 * $quat.W * $quat.W + 2.0 * $quat.W * $quat.W - 1.0))
 	}
