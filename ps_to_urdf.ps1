@@ -1,5 +1,69 @@
 ﻿add-type -AssemblyName System.Numerics
 
+function icadsample {
+	return @(@{node = @{name = "part_a";
+						xyz = @(0,0,0); xvec = @(1,0,0); yvec = @(0,1,0); zvec = @(0,0,1)};
+			children = @()},
+			@{node = @{name = "part_b";
+						xyz = @(0,0.5,1.0); xvec = @(1,0,0); yvec = @(0,1,0); zvec = @(0,0,1)};
+			children = @(
+					@{node = @{name = "part_c";
+								xyz = @(1.0,2.0,0); xvec = @(0,1,0); yvec = @(-1,0,0); zvec = @(0,0,1)};
+					children = @()},
+					@{node = @{name = "part_d";
+								xyz = @(0,0,0); xvec = @(1,0,0); yvec = @(0,1,0); zvec = @(0,0,1)};
+					children = @()})}
+			)
+}
+
+function seek_icadtree {
+	param($arr)
+
+	$urdf = $arr | % { seek_icadpart $_ @{name = "world";
+		xyz = @(0,0,0); xvec = @(1,0,0); yvec = @(0,1,0); zvec = @(0,0,1)} }
+	return @{__tag = "robot"; name = "robot"; __body = $urdf}
+}
+
+function seek_icadpart {
+	param($hash, $parent)
+
+	if ($hash -eq $null) { return @() }
+
+	$name = $hash.node.name
+	$children = $hash.children
+	$parentname = $parent.name
+	$xyz = $hash.node.xyz -join " "
+	$rpy = (uvector_to_rpy $hash.node.xvec $hash.node.yvec $hash.node.zvec) -join " "
+
+	# fixed joint
+	$urdf = @(@{__tag = "link"; name = $name;
+			__body = @(@{__tag = "visual";
+					__body = @(@{__tag = "geometry";
+									__body = @(@{__tag = "mesh"; filename = "package://${name}.stl"})},
+								@{__tag = "origin"; xyz = "0 0 0"; rpy = "0 0 0"},
+								@{__tag = "material"; name = "gray";
+									__body = @(@{__tag = "color"; rgba = "0.2 0.2 0.2 1.0"})})}
+					)},
+			@{__tag = "joint"; name = "joint-${name}"; type = "fixed";
+							__body = @(@{__tag = "parent"; link = $parentname},
+									@{__tag = "child"; link = $name},
+									@{__tag = "origin"; xyz = $xyz; rpy = $rpy})})
+
+	$hash.children | % { $urdf += (seek_icadpart $_) }
+
+	return $urdf
+
+	# revolute joint
+#	$hash.node.joint = @{__tag = "joint"; name = "joint-${name}"; type = "revolute";
+#							__body = @(@{__tag = "parent"; link = $parentname},
+#									@{__tag = "child"; link = $name},
+#									@{__tag = "origin"; xyz = $xyz; rpy = $rpy},
+#									@{__tag = "axis"; xyz = ""},
+#									@{__tag = "limit"; effort = "1000.0"; lower = ""; upper = ""; velocity = "1000.0"})}
+}
+
+
+
 # Hash型の機構木構造をURDF書式のstring型に変換して出力する
 # 特殊キーの説明
 #   "__tag"の値をXMLのタグ名に、"__body"の値(配列)をXMLの内部BODYとみなす
@@ -20,7 +84,7 @@ function to_xml {
 		elseif ("__body" -eq $_)
 		{
 			$tree["__body"] | % {
-				$b = convert_to_urdf $_ ($level + 1)
+				$b = to_xml $_ ($level + 1)
 				$bodies.add("${indent}$b")
 			}
 		}
@@ -39,7 +103,7 @@ function to_xml {
 	else
 	{
 		$body = $bodies -join "`n"
-		return "${indent}<${name}${attrs}>`n${body}`n</${name}>"
+		return "${indent}<${name}${attrs}>`n${body}`n${indent}</${name}>"
 	}
 
 }
@@ -72,28 +136,4 @@ function uvector_to_rpy {
 	}
 }
 
-function parse_icad {
-	param ($tree, $parent)
 
-	$stl = ""
-	$stlname = ""
-	$xyz = @(0,0,0)
-	$xvec = @(1,0,0)
-	$yvec = @(0,1,0)
-	$zvec = @(0,0,1)
-	$children = @()
-
-	$rpy = uvec_to_rpy $xvec $yvec $zvec
-	$body = parse_icad $children $stl
-
-	@(@{__tag = "link"; name = $stlname;
-			__body = @(@{__tag = "visual";
-					__body = @(@{__tag = "geometry"; __body = @(@{__tag = "stlobj"; path = $stl})},
-								@{__tag = "origin"; xyz = $xyz; rpy = $rpy},
-								@{__tag = "material"; name = "gray";
-									__body = @(@{__tag = "color"; rgba = "0.2 0.2 0.2 1.0"})})},
-					)},
-			@{__tag = "joint"; name = "${stl}_joint"; type = "fixed"; # [TODO] joint type
-				__body = @(@{__tag = "parent" link = $parent}, @{__tag = "child"; link = $stl})})
-
-}
