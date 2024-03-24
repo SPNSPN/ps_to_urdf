@@ -136,4 +136,50 @@ function uvector_to_rpy {
 	}
 }
 
+function uvec_to_rmat {
+	param ($xvec, $yvec, $zvec)
+	
+	$mat = new-object System.Numerics.Matrix4x4($xvec[0], $yvec[0], $zvec[0], 0,
+												$xvec[1], $yvec[1], $zvec[1], 0,
+												$xvec[2], $yvec[2], $zvec[2], 0,
+												0, 0, 0, 1)
+	return $mat
+}
+
+function rmat_to_quat {
+	$param ($rmat)
+	$q = System.Numerics.Quaternion.
+	$quat = [System.Numerics.Quaternion]::CreateFromRotationMatrix($mat)
+	return $quat
+}
+
+
+function rpy_to_quat {
+	param ($roll, $pitch, $yaw)
+	$q = [System.Numerics.Quaternion]::CreateFromYawPitchRoll($yaw, $pitch, $roll)
+	return $q
+}
+
+
+function quat_to_rpy {
+	param ($quat)
+
+	$sy = 2.0 * $quat.X * $quat.Z + 2.0 * $quat.Y * $quat.W
+	if ([Math]::Abs($sy) -gt 0.99999)
+	{
+		# オイラー角のジンバルロック
+		return @([Math]::Atan2(2.0 * $quat.Y * $quat.Z + 2.0 * $quat.X * $quat.W,
+					2.0 * $quat.W * $quat.W + 2.0 * $quat.Y * $quat.Y - 1),
+				[Math]::Asin($sy),
+				0.0)
+	}
+	else
+	{
+		return @([Math]::Atan2(2.0 * $quat.X * $quat.W - 2.0 * $quat.Y * $quat.Z,
+								2.0 * $quat.W * $quat.W + 2.0 * $quat.Z * $quat.Z - 1.0),
+				[Math]::Asin($sy),
+				[Math]::Atan2(2.0 * $quat.Z * $quat.W - 2.0 * $quat.X * $quat.Y,
+								2.0 * $quat.W * $quat.W + 2.0 * $quat.W * $quat.W - 1.0))
+	}
+}
 
